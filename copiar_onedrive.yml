@@ -1,0 +1,29 @@
+name: Cópia OneDrive — ADM_2026.xlsm
+
+on:
+  schedule:
+    - cron: "0 23 * * *"   # Todo dia às 23:00 (horário UTC-3 = 02:00 UTC do dia seguinte)
+  workflow_dispatch:         # Permite executar manualmente pelo GitHub
+
+jobs:
+  copiar-arquivo:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: 🐍 Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 📦 Instalar dependências
+        run: pip install requests
+
+      - name: 🔄 Executar cópia OneDrive
+        env:
+          CLIENT_ID:     ${{ secrets.CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+          TENANT_ID:     ${{ secrets.TENANT_ID }}
+        run: python copiar_onedrive.py
