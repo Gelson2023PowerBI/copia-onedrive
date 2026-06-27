@@ -20,7 +20,7 @@ TENANT_ID     = os.environ["TENANT_ID"]
 PERSONAL_SHARE_URL = "https://1drv.ms/x/c/ffc5a76f08188416/IQAgvxyXLx__Q6xX4aY2VkPFAVzIC7p7M-1cBMxJTvX0wx0?e=wouYQi"
 
 # OneDrive Profissional — destino
-WORK_USER_EMAIL  = "gelson@planilhasmagicas.onmicrosoft.com"
+WORK_USER_ID = "7481208f-7378-4824-9de8-e21e20fffba7"
 WORK_DEST_FOLDER = "Documents/Gelson_SharePoint/TranferenciaArquivosClaude"
 WORK_FILE_NAME   = "ADM_2026.xlsm"
 
@@ -74,7 +74,7 @@ def upload_arquivo(token: str, conteudo: bytes) -> None:
     """Envia o arquivo para o OneDrive Profissional, substituindo se existir."""
     dest_path = f"{WORK_DEST_FOLDER}/{WORK_FILE_NAME}"
     url = (
-        f"https://graph.microsoft.com/v1.0/users/{WORK_USER_EMAIL}"
+        f"https://graph.microsoft.com/v1.0/users/{WORK_USER_ID}"
         f"/drive/root:/{dest_path}:/content"
     )
     headers = {
