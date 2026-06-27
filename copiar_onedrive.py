@@ -21,7 +21,7 @@ PERSONAL_SHARE_URL = "https://1drv.ms/x/c/ffc5a76f08188416/IQAgvxyXLx__Q6xX4aY2V
 
 # OneDrive Profissional — destino
 WORK_USER_EMAIL  = "gelson@planilhasmagicas.onmicrosoft.com"
-WORK_DEST_FOLDER = "Documents/Gelson_SharePoint"
+WORK_DEST_FOLDER = "Documents/Gelson_SharePoint/TranferenciaArquivosClaude"
 WORK_FILE_NAME   = "ADM_2026.xlsm"
 
 # ─────────────────────────────────────────────
