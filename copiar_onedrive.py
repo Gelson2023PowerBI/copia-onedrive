@@ -20,7 +20,7 @@ TENANT_ID     = os.environ["TENANT_ID"]
 PERSONAL_SHARE_URL = "https://1drv.ms/x/c/ffc5a76f08188416/IQAgvxyXLx__Q6xX4aY2VkPFAVzIC7p7M-1cBMxJTvX0wx0?e=wouYQi"
 
 # OneDrive Profissional — destino
-WORK_USER_ID = "7481208f-7378-4824-9de8-e21e20fffba7"
+WORK_USER_ID     = "7481208f-7378-4824-9de8-e21e20fffba7"
 WORK_DEST_FOLDER = "Documents/Gelson_SharePoint/TranferenciaArquivosClaude"
 WORK_FILE_NAME   = "ADM_2026.xlsm"
 
@@ -35,7 +35,6 @@ log = logging.getLogger(__name__)
 
 
 def get_token() -> str:
-    """Obtém token OAuth 2.0 via client_credentials."""
     url = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token"
     resp = requests.post(url, data={
         "grant_type":    "client_credentials",
@@ -48,34 +47,37 @@ def get_token() -> str:
     return resp.json()["access_token"]
 
 
+def get_drive_id(token: str) -> str:
+    """Obtém o ID do drive do usuário corporativo."""
+    url = f"https://graph.microsoft.com/v1.0/users/{WORK_USER_ID}/drives"
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+    drives = resp.json().get("value", [])
+    if not drives:
+        raise Exception("Nenhum drive encontrado para o usuário.")
+    drive_id = drives[0]["id"]
+    log.info(f"✅ Drive ID encontrado: {drive_id}")
+    return drive_id
+
+
 def download_arquivo() -> bytes:
     """Baixa o arquivo do OneDrive Pessoal via link de compartilhamento."""
-    # Converte link curto para link de download direto
-    download_url = PERSONAL_SHARE_URL.replace("1drv.ms/x", "1drv.ms/u") 
-    
     log.info("⬇️  Baixando arquivo do OneDrive Pessoal...")
-    
-    # Segue redirecionamentos para obter o arquivo
     session = requests.Session()
-    
-    # Primeiro acessa o link para obter o download direto
-    resp = session.get(PERSONAL_SHARE_URL, allow_redirects=True)
-    
-    # Tenta obter via parâmetro download=1
     download_url = PERSONAL_SHARE_URL + "&download=1" if "?" in PERSONAL_SHARE_URL else PERSONAL_SHARE_URL + "?download=1"
     resp = session.get(download_url, allow_redirects=True)
     resp.raise_for_status()
-    
     log.info(f"✅ Download OK — {len(resp.content):,} bytes")
     return resp.content
 
 
-def upload_arquivo(token: str, conteudo: bytes) -> None:
-    """Envia o arquivo para o OneDrive Profissional, substituindo se existir."""
+def upload_arquivo(token: str, drive_id: str, conteudo: bytes) -> None:
+    """Envia o arquivo para o OneDrive Profissional usando o drive ID."""
     dest_path = f"{WORK_DEST_FOLDER}/{WORK_FILE_NAME}"
     url = (
-        f"https://graph.microsoft.com/v1.0/users/{WORK_USER_ID}"
-        f"/drive/root:/{dest_path}:/content"
+        f"https://graph.microsoft.com/v1.0/drives/{drive_id}"
+        f"/root:/{dest_path}:/content"
     )
     headers = {
         "Authorization": f"Bearer {token}",
@@ -93,7 +95,8 @@ def main():
     try:
         conteudo = download_arquivo()
         token    = get_token()
-        upload_arquivo(token, conteudo)
+        drive_id = get_drive_id(token)
+        upload_arquivo(token, drive_id, conteudo)
         log.info("🎉 Rotina concluída com sucesso!")
     except requests.HTTPError as e:
         log.error(f"❌ Erro HTTP {e.response.status_code}: {e.response.text}")
