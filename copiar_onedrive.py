@@ -16,9 +16,8 @@ CLIENT_ID     = os.environ["CLIENT_ID"]
 CLIENT_SECRET = os.environ["CLIENT_SECRET"]
 TENANT_ID     = os.environ["TENANT_ID"]
 
-# OneDrive Pessoal — origem
-PERSONAL_USER_ID   = "ffc5a76f08188416"
-PERSONAL_FILE_PATH = "Documents/Gelson/ADM_2026.xlsm"
+# OneDrive Pessoal — link de compartilhamento direto
+PERSONAL_SHARE_URL = "https://1drv.ms/x/c/ffc5a76f08188416/IQAgvxyXLx__Q6xX4aY2VkPFAVzIC7p7M-1cBMxJTvX0wx0?e=wouYQi"
 
 # OneDrive Profissional — destino
 WORK_USER_EMAIL  = "gelson@planilhasmagicas.onmicrosoft.com"
@@ -49,15 +48,24 @@ def get_token() -> str:
     return resp.json()["access_token"]
 
 
-def download_arquivo(token: str) -> bytes:
-    """Baixa o arquivo do OneDrive Pessoal."""
-    url = (
-        f"https://graph.microsoft.com/v1.0/users/{PERSONAL_USER_ID}"
-        f"/drive/root:/{PERSONAL_FILE_PATH}:/content"
-    )
-    log.info(f"⬇️  Baixando: {PERSONAL_FILE_PATH}")
-    resp = requests.get(url, headers={"Authorization": f"Bearer {token}"})
+def download_arquivo() -> bytes:
+    """Baixa o arquivo do OneDrive Pessoal via link de compartilhamento."""
+    # Converte link curto para link de download direto
+    download_url = PERSONAL_SHARE_URL.replace("1drv.ms/x", "1drv.ms/u") 
+    
+    log.info("⬇️  Baixando arquivo do OneDrive Pessoal...")
+    
+    # Segue redirecionamentos para obter o arquivo
+    session = requests.Session()
+    
+    # Primeiro acessa o link para obter o download direto
+    resp = session.get(PERSONAL_SHARE_URL, allow_redirects=True)
+    
+    # Tenta obter via parâmetro download=1
+    download_url = PERSONAL_SHARE_URL + "&download=1" if "?" in PERSONAL_SHARE_URL else PERSONAL_SHARE_URL + "?download=1"
+    resp = session.get(download_url, allow_redirects=True)
     resp.raise_for_status()
+    
     log.info(f"✅ Download OK — {len(resp.content):,} bytes")
     return resp.content
 
@@ -83,8 +91,8 @@ def main():
     log.info("=" * 55)
     log.info(f"🚀 Início: {datetime.utcnow():%d/%m/%Y %H:%M:%S} UTC")
     try:
+        conteudo = download_arquivo()
         token    = get_token()
-        conteudo = download_arquivo(token)
         upload_arquivo(token, conteudo)
         log.info("🎉 Rotina concluída com sucesso!")
     except requests.HTTPError as e:
