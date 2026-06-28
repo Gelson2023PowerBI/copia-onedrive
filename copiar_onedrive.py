@@ -20,10 +20,9 @@ TENANT_ID     = os.environ["TENANT_ID"]
 PERSONAL_SHARE_URL = "https://1drv.ms/x/c/ffc5a76f08188416/IQAgvxyXLx__Q6xX4aY2VkPFAVzIC7p7M-1cBMxJTvX0wx0?e=wouYQi"
 
 # SharePoint Profissional — destino
-SHAREPOINT_HOSTNAME  = "planilhasmagicas-my.sharepoint.com"
-SHAREPOINT_SITE_PATH = "/personal/gelson_planilhasmagicas_onmicrosoft_com"
-DEST_FOLDER          = "Documents/Gelson_SharePoint/TranferenciaArquivosClaude"
-DEST_FILE_NAME       = "ADM_2026.xlsm"
+WORK_USER_ID   = "7481208f-7378-4824-9de8-e21e20fffba7"
+DEST_FOLDER    = "Gelson_SharePoint/TranferenciaArquivosClaude"
+DEST_FILE_NAME = "ADM_2026.xlsm"
 
 # ─────────────────────────────────────────────
 #  LOGGING
@@ -48,39 +47,28 @@ def get_token() -> str:
     return resp.json()["access_token"]
 
 
-def get_site_drive_id(token: str) -> str:
-    """Obtém o drive ID do site do SharePoint."""
+def get_drive_id(token: str) -> str:
+    """Obtém o drive ID do OneDrive do usuário corporativo."""
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Busca o site pelo hostname e caminho
-    site_url = (
-        f"https://graph.microsoft.com/v1.0/sites/"
-        f"{SHAREPOINT_HOSTNAME}:{SHAREPOINT_SITE_PATH}"
-    )
-    log.info("🔍 Buscando site do SharePoint...")
-    resp = requests.get(site_url, headers=headers)
-    resp.raise_for_status()
-    site_id = resp.json()["id"]
-    log.info(f"✅ Site ID: {site_id}")
-
-    # Busca o drive do site
-    drives_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives"
-    resp = requests.get(drives_url, headers=headers)
+    # Lista todos os drives do usuário e loga para diagnóstico
+    url = f"https://graph.microsoft.com/v1.0/users/{WORK_USER_ID}/drives"
+    resp = requests.get(url, headers=headers)
     resp.raise_for_status()
     drives = resp.json().get("value", [])
 
-    # Pega o drive "Documents"
-    drive_id = None
     for drive in drives:
-        log.info(f"   Drive encontrado: {drive['name']} — {drive['id']}")
-        if drive.get("name") in ("Documents", "Documentos"):
-            drive_id = drive["id"]
-            break
+        log.info(f"   Drive: {drive['name']} | tipo: {drive['driveType']} | ID: {drive['id']}")
 
-    if not drive_id:
-        drive_id = drives[0]["id"]
+    # Seleciona o drive do tipo 'business' (OneDrive for Business)
+    for drive in drives:
+        if drive.get("driveType") == "business":
+            log.info(f"✅ Drive business selecionado: {drive['id']}")
+            return drive["id"]
 
-    log.info(f"✅ Drive ID selecionado: {drive_id}")
+    # Fallback: primeiro drive disponível
+    drive_id = drives[0]["id"]
+    log.info(f"✅ Drive selecionado (fallback): {drive_id}")
     return drive_id
 
 
@@ -109,7 +97,7 @@ def upload_arquivo(token: str, drive_id: str, conteudo: bytes) -> None:
     log.info(f"⬆️  Enviando para: {dest_path}")
     resp = requests.put(url, headers=headers, data=conteudo)
     resp.raise_for_status()
-    log.info("✅ Arquivo substituído com sucesso no SharePoint!")
+    log.info("✅ Arquivo substituído com sucesso!")
 
 
 def main():
@@ -118,7 +106,7 @@ def main():
     try:
         conteudo = download_arquivo()
         token    = get_token()
-        drive_id = get_site_drive_id(token)
+        drive_id = get_drive_id(token)
         upload_arquivo(token, drive_id, conteudo)
         log.info("🎉 Rotina concluída com sucesso!")
     except requests.HTTPError as e:
