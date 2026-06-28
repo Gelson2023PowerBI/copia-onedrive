@@ -62,8 +62,8 @@ def get_drive_id(token: str) -> str:
 
     # Seleciona o drive do tipo 'business' (OneDrive for Business)
     for drive in drives:
-        if drive.get("driveType") == "business":
-            log.info(f"✅ Drive business selecionado: {drive['id']}")
+        if drive.get("name") in ("Documentos", "Documents"):
+            log.info(f"✅ Drive selecionado: {drive['name']} | {drive['id']}")
             return drive["id"]
 
     # Fallback: primeiro drive disponível
