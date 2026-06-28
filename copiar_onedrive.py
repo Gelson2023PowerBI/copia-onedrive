@@ -1,5 +1,5 @@
 """
-Rotina: Copia ADM_2026.xlsm do OneDrive Pessoal para o OneDrive Profissional
+Rotina: Copia ADM_2026.xlsm do OneDrive Pessoal para o SharePoint Profissional
 Execução: GitHub Actions — todo dia às 23:00 (horário de Brasília)
 """
 
@@ -19,10 +19,11 @@ TENANT_ID     = os.environ["TENANT_ID"]
 # OneDrive Pessoal — link de compartilhamento direto
 PERSONAL_SHARE_URL = "https://1drv.ms/x/c/ffc5a76f08188416/IQAgvxyXLx__Q6xX4aY2VkPFAVzIC7p7M-1cBMxJTvX0wx0?e=wouYQi"
 
-# OneDrive Profissional — destino
-WORK_USER_ID     = "7481208f-7378-4824-9de8-e21e20fffba7"
-WORK_DEST_FOLDER = "Documents/Gelson_SharePoint/TranferenciaArquivosClaude"
-WORK_FILE_NAME   = "ADM_2026.xlsm"
+# SharePoint Profissional — destino
+SHAREPOINT_HOSTNAME  = "planilhasmagicas-my.sharepoint.com"
+SHAREPOINT_SITE_PATH = "/personal/gelson_planilhasmagicas_onmicrosoft_com"
+DEST_FOLDER          = "Documents/Gelson_SharePoint/TranferenciaArquivosClaude"
+DEST_FILE_NAME       = "ADM_2026.xlsm"
 
 # ─────────────────────────────────────────────
 #  LOGGING
@@ -47,17 +48,39 @@ def get_token() -> str:
     return resp.json()["access_token"]
 
 
-def get_drive_id(token: str) -> str:
-    """Obtém o ID do drive do usuário corporativo."""
-    url = f"https://graph.microsoft.com/v1.0/users/{WORK_USER_ID}/drives"
+def get_site_drive_id(token: str) -> str:
+    """Obtém o drive ID do site do SharePoint."""
     headers = {"Authorization": f"Bearer {token}"}
-    resp = requests.get(url, headers=headers)
+
+    # Busca o site pelo hostname e caminho
+    site_url = (
+        f"https://graph.microsoft.com/v1.0/sites/"
+        f"{SHAREPOINT_HOSTNAME}:{SHAREPOINT_SITE_PATH}"
+    )
+    log.info("🔍 Buscando site do SharePoint...")
+    resp = requests.get(site_url, headers=headers)
+    resp.raise_for_status()
+    site_id = resp.json()["id"]
+    log.info(f"✅ Site ID: {site_id}")
+
+    # Busca o drive do site
+    drives_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives"
+    resp = requests.get(drives_url, headers=headers)
     resp.raise_for_status()
     drives = resp.json().get("value", [])
-    if not drives:
-        raise Exception("Nenhum drive encontrado para o usuário.")
-    drive_id = drives[0]["id"]
-    log.info(f"✅ Drive ID encontrado: {drive_id}")
+
+    # Pega o drive "Documents"
+    drive_id = None
+    for drive in drives:
+        log.info(f"   Drive encontrado: {drive['name']} — {drive['id']}")
+        if drive.get("name") in ("Documents", "Documentos"):
+            drive_id = drive["id"]
+            break
+
+    if not drive_id:
+        drive_id = drives[0]["id"]
+
+    log.info(f"✅ Drive ID selecionado: {drive_id}")
     return drive_id
 
 
@@ -65,7 +88,7 @@ def download_arquivo() -> bytes:
     """Baixa o arquivo do OneDrive Pessoal via link de compartilhamento."""
     log.info("⬇️  Baixando arquivo do OneDrive Pessoal...")
     session = requests.Session()
-    download_url = PERSONAL_SHARE_URL + "&download=1" if "?" in PERSONAL_SHARE_URL else PERSONAL_SHARE_URL + "?download=1"
+    download_url = PERSONAL_SHARE_URL + "&download=1"
     resp = session.get(download_url, allow_redirects=True)
     resp.raise_for_status()
     log.info(f"✅ Download OK — {len(resp.content):,} bytes")
@@ -73,8 +96,8 @@ def download_arquivo() -> bytes:
 
 
 def upload_arquivo(token: str, drive_id: str, conteudo: bytes) -> None:
-    """Envia o arquivo para o OneDrive Profissional usando o drive ID."""
-    dest_path = f"{WORK_DEST_FOLDER}/{WORK_FILE_NAME}"
+    """Envia o arquivo para o SharePoint, substituindo se existir."""
+    dest_path = f"{DEST_FOLDER}/{DEST_FILE_NAME}"
     url = (
         f"https://graph.microsoft.com/v1.0/drives/{drive_id}"
         f"/root:/{dest_path}:/content"
@@ -86,7 +109,7 @@ def upload_arquivo(token: str, drive_id: str, conteudo: bytes) -> None:
     log.info(f"⬆️  Enviando para: {dest_path}")
     resp = requests.put(url, headers=headers, data=conteudo)
     resp.raise_for_status()
-    log.info("✅ Arquivo substituído com sucesso no OneDrive Profissional!")
+    log.info("✅ Arquivo substituído com sucesso no SharePoint!")
 
 
 def main():
@@ -95,7 +118,7 @@ def main():
     try:
         conteudo = download_arquivo()
         token    = get_token()
-        drive_id = get_drive_id(token)
+        drive_id = get_site_drive_id(token)
         upload_arquivo(token, drive_id, conteudo)
         log.info("🎉 Rotina concluída com sucesso!")
     except requests.HTTPError as e:
