@@ -2,7 +2,7 @@ name: Cópia OneDrive — ADM_2026.xlsm
 
 on:
   schedule:
-    - cron: "0 23 * * *"   # Todo dia às 23:00 (horário UTC-3 = 02:00 UTC do dia seguinte)
+    - cron: "0 5 * * *"   # Todo dia às 2:00 (horário UTC-3 = 02:00 UTC do dia seguinte)
   workflow_dispatch:         # Permite executar manualmente pelo GitHub
 
 jobs:
